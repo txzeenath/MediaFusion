@@ -251,10 +251,18 @@ def is_video_file(filename: str) -> bool:
     )
 
 
-def get_filter_certification_values(user_data: schemas.UserData) -> list[str]:
+def get_filter_certification_values(user_data, country=None):
+    """
+    Returns a flat list of certification codes for the user's selected categories and country.
+    Falls back to 'USA' if country is not found.
+    """
+    # Use user_data.certification_region if available, else fallback to argument or 'USA'
+    region = getattr(user_data, 'certification_region', None) or country or 'USA'
+    mapping = const.CERTIFICATION_MAPPING.get(region, const.CERTIFICATION_MAPPING["USA"])
+    logging.debug("[CERT DEBUG] using country: %s, mapping: %s", region, mapping)
     certification_values = []
     for category in user_data.certification_filter:
-        certification_values.extend(const.CERTIFICATION_MAPPING.get(category, []))
+        certification_values.extend(mapping.get(category, []))
     return certification_values
 
 
@@ -263,6 +271,12 @@ def validate_parent_guide_nudity(metadata, user_data: schemas.UserData) -> bool:
     Validate if the metadata has adult content based on parent guide nudity status and certifications.
     Returns False if the content should be filtered out based on user preferences.
     """
+    # Debug output for certification filtering
+    logging.debug("[CERT DEBUG] Metadata: %s", getattr(metadata, 'dict', lambda: str(metadata))())
+    logging.debug("[CERT DEBUG] parent_guide_certificates: %s", getattr(metadata, 'parent_guide_certificates', None))
+    logging.debug("[CERT DEBUG] user_data.certification_filter: %s", getattr(user_data, 'certification_filter', None))
+    filter_certification_values = get_filter_certification_values(user_data)
+    logging.debug("[CERT DEBUG] filter_certification_values: %s", filter_certification_values)
     # Strict policy for adult genres.
     if metadata.genres and "Adult" in metadata.genres:
         return False
@@ -281,8 +295,6 @@ def validate_parent_guide_nudity(metadata, user_data: schemas.UserData) -> bool:
 
     # Check certification filter
     if "Disable" not in user_data.certification_filter:
-        filter_certification_values = get_filter_certification_values(user_data)
-
         if "Unknown" in user_data.certification_filter:
             # Filter out if certifications list is empty or doesn't exist
             if not metadata.parent_guide_certificates:
