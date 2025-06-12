@@ -252,6 +252,7 @@ class UserData(BaseModel):
             "Adults+",
         ]
     ] = Field(default=["Adults+"], alias="cf")
+    certification_region: str = Field(default="USA", alias="cr")
     api_password: str | None = Field(default=None, alias="ap")
     language_sorting: list[str | None] = Field(
         default=const.LANGUAGES_FILTERS, alias="ls"
@@ -309,6 +310,12 @@ class UserData(BaseModel):
     @field_validator("certification_filter", mode="after")
     def validate_certification_filter(cls, v):
         return v or ["Adults+"]
+
+    @field_validator("certification_region", mode="after")
+    def validate_certification_region(cls, v):
+        if v not in const.CERTIFICATION_MAPPING:
+            raise ValueError(f"Invalid certification region: {v}")
+        return v
 
     @field_validator("quality_filter", mode="after")
     def validate_quality_filter(cls, v):
